@@ -39,3 +39,8 @@ Where:
 ```bash
 git clone https://github.com/your-username/mean-reversion-GLD-GDX.git
 cd mean-reversion-GLD-GDX
+```
+
+## References
+
+1. [TheQuantPy](https://github.com/TheQuantPy/youtube-tutorials)
