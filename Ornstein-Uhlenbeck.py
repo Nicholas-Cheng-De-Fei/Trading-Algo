@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from ib_insync import IB, util, MarketOrder, Forex
+from ib_insync import IB, util, MarketOrder, Forex, Stock
 import sys
 import datetime
 from scipy.stats import linregress
@@ -102,22 +102,22 @@ def execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position):
     profit = 0
 
     if signal == 1 and ticker not in buyOrders:
-        order = MarketOrder('BUY', 10000)
+        order = MarketOrder('BUY', 1000)
         buyOrders[ticker] = 1
         open_position['price'] = ib.reqMktData(contract).last
 
     elif signal == -1 and ticker not in sellOrders:
-        order = MarketOrder('SELL', 10000)
+        order = MarketOrder('SELL', 1000)
         sellOrders[ticker] = 1
         open_position['price'] = ib.reqMktData(contract).last
 
     elif signal == 0:
         if ticker in buyOrders:
-            order = MarketOrder('SELL', 100000)
+            order = MarketOrder('SELL', 1000)
             profit = (ib.reqMktData(contract).last - open_position['price']) * 10000
             del buyOrders[ticker]
         elif ticker in sellOrders:
-            order = MarketOrder('BUY', 100000)
+            order = MarketOrder('BUY', 1000)
             profit = (open_position['price'] - ib.reqMktData(contract).last) * 10000
             del sellOrders[ticker]
 
@@ -131,7 +131,7 @@ def execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position):
 # ✅ Main Function
 def main():
     ib = connect_ibkr()
-    contract = Forex('NZDUSD')
+    contract = Stock('SPY', 'SMART', 'USD')  # Correct contract for SPY ETF
     buyOrders = {}
     sellOrders = {}
     open_position = {'price': 0}
