@@ -43,6 +43,7 @@ def fetch_historical_data(ib, contract):
 
 
 # ✅ Calculate Mean-Reversion Speed (Theta)
+# https://forums.eviews.com/viewtopic.php?t=1478
 def calculate_mean_reversion_speed(data):
     """Estimate mean-reversion speed (theta) using AR(1) regression."""
     data['price_change'] = data['close'].diff()
