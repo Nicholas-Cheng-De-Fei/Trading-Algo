@@ -20,16 +20,16 @@ This project models the price relationship between **GLD** and **GDX** using the
 
 The relationship between **GLD** and **GDX** is modeled using the **Ornstein-Uhlenbeck (OU) Process**:
 
-\[
+$$
 dX_t = \theta (\mu - X_t) dt + \sigma dW_t
-\]
+$$
 
 Where:
-- \( X_t \): Spread between GLD and GDX prices.
-- \( \theta \): Speed of mean reversion.
-- \( \mu \): Long-term mean of the spread.
-- \( \sigma \): Volatility of the spread.
-- \( dW_t \): Brownian motion term.
+- $X_t$: Spread between GLD and GDX prices.
+- $\theta$: Speed of mean reversion.
+- $\mu$: Long-term mean of the spread.
+- $\sigma$: Volatility of the spread.
+- $dW_t$: Brownian motion term.
 
 ---
 
