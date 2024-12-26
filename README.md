@@ -37,9 +37,9 @@ Where:
 
 ### **1. Clone the Repository**
 ```bash
-git clone https://github.com/your-username/mean-reversion-GLD-GDX.git
-cd mean-reversion-GLD-GDX
+git clone https://github.com/Nicholas-Cheng-De-Fei/Trading-Algo.git
 ```
+Then navigate to the folder where the folders are cloned into.
 
 ## References
 
