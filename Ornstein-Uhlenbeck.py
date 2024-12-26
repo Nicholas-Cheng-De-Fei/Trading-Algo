@@ -75,24 +75,28 @@ def calculate_mean_reversion_speed(data):
 # ✅ Ornstein-Uhlenbeck Process Strategy
 def ornstein_uhlenbeck_strategy(data):
     """Apply the Ornstein-Uhlenbeck model to identify trading signals."""
+    length = len(data) - 2
     theta = calculate_mean_reversion_speed(data)
     mu = data['close'].mean()
     sigma = data['close'].std()
 
-    data['OU_Process'] = 0.0
-    for i in range(1, len(data)):
-        dt = 1  # Time step
-        prev_price = data['close'].iloc[i - 1]
-        noise = np.random.normal(0, sigma * np.sqrt(dt))
-        data['OU_Process'].iloc[i] = prev_price + theta * (mu - prev_price) * dt + noise
+    # Get the signal from the most recent data point
+    dt = 1  # Time step
+    prev_price = data['close'].iloc[length - 1]
+    current_price = data['close'].iloc[length]
+    noise = np.random.normal(0, sigma * np.sqrt(dt))
+    OU_price = prev_price + theta * (mu - prev_price) * dt + noise
 
-    # Generate trading signals
-    data['OU_Signal'] = 0
-    data.loc[data['close'] > data['OU_Process'], 'OU_Signal'] = -1  # Sell Signal
-    data.loc[data['close'] < data['OU_Process'], 'OU_Signal'] = 1  # Buy Signal
+
+    # Generate trading signal for the most recent data point
+    signal = 0
+    if (current_price > OU_price):
+        signal = -1 # Sell Signal
+    elif (current_price < OU_price):
+        signal = 1 # Buy Signal
 
     print(f"✅ Mean-Reversion Speed (Theta) used: {theta:.4f}")
-    return data.dropna()
+    return signal
 
 
 # ✅ Trade Execution
@@ -139,12 +143,9 @@ def main():
 
     try:
         data = fetch_historical_data(ib, contract)
-        data = ornstein_uhlenbeck_strategy(data)  # Apply OU Process
-
-        for index, row in data.iterrows():
-            signal = row['OU_Signal']
-            execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position)
-            ib.sleep(1)  # Prevent API overload
+        signal = ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
+        execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position)
+        ib.sleep(1)  # Prevent API overload
 
     except ValueError as e:
         print(f"❌ Error: {e}")
