@@ -85,6 +85,9 @@ def ornstein_uhlenbeck_strategy(data):
     """
     fixed dt of 1 not true representation of time step of data freq,
     derive dt dynamically from the time diff btn price obs
+    1 = day
+    1/24 = hourly
+    1/1440 = minute   
     """
     dt = 1  # Time step
     prev_price = data['close'].iloc[length - 1]
@@ -145,7 +148,6 @@ def execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position):
         print(f"✅ Trade executed: {trade}")
         if profit != 0:
             print(f"💰 Profit: {profit:.2f}")
-
 
 # ✅ Main Function
 def main():
