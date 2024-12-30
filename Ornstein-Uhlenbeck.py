@@ -6,6 +6,7 @@ import sys
 import datetime
 from scipy.stats import linregress
 
+# Trading bot class for easier importing to other files in the project
 class TradingBot:
 
     def __init__(self):
@@ -28,12 +29,12 @@ class TradingBot:
 
 
     # ✅ Fetch Historical Data
-    def fetch_historical_data(self, ib, contract):
+    def fetch_historical_data(self, ib, contract, interval):
         bars = ib.reqHistoricalData(
             contract,
             endDateTime='',
-            durationStr='1 Y',
-            barSizeSetting='4 hours',
+            durationStr='3 M',
+            barSizeSetting=interval,
             whatToShow='MIDPOINT',
             useRTH=True,
             formatDate=1
@@ -126,12 +127,12 @@ class TradingBot:
         profit = 0
 
         if signal == 1 and ticker not in self.buyOrders:
-            order = MarketOrder('BUY', 1000)
+            order = MarketOrder('BUY', 100)
             self.buyOrders[ticker] = 1
             open_position['price'] = ib.reqMktData(contract).last
 
         elif signal == -1 and ticker not in self.sellOrders:
-            order = MarketOrder('SELL', 1000)
+            order = MarketOrder('SELL', 100)
             self.sellOrders[ticker] = 1
             open_position['price'] = ib.reqMktData(contract).last
 
@@ -150,7 +151,7 @@ def main():
     open_position = {'price': 0}
 
     try:
-        data = trading_bot.fetch_historical_data(ib, contract)
+        data = trading_bot.fetch_historical_data(ib, contract, "3 mins")
         signal = trading_bot.ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
         trading_bot.execute_trade(signal, contract, ib, open_position)
         ib.sleep(1)  # Prevent API overload
