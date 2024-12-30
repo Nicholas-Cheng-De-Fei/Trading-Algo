@@ -134,7 +134,7 @@ class TradingBot:
 
         if order:
             trade = ib.placeOrder(contract, order)
-            print(f"✅ Trade executed: {trade}")
+            # print(f"✅ Trade executed: {trade}")
 
             """
             Save our order in a dictionary with a timestamp, entry price and quantity
@@ -180,8 +180,8 @@ class TradingBot:
                         new_order = MarketOrder('SELL', order[2])
                 
                 if (new_order):
-                    trade = ib.placeOrder(contract, order)
-                    print(f"✅ Trade executed: {trade}")
+                    trade = ib.placeOrder(contract, new_order)
+                    # print(f"✅ Trade executed: {trade}")
     
     def exitSellOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.10, time_limit=360):
         ticker = contract.symbol
@@ -195,6 +195,7 @@ class TradingBot:
                 if time_elapsed >= time_limit:
                     # ✅ Take-Profit Logic
                     # # 10% before it hits OU price
+                    print(f"Stop loss {OU_price * (1 - MoS):.4f}")
                     if order[1] <= OU_price * (1 - MoS):
                         new_order = MarketOrder('BUY', order[2])
 
@@ -206,8 +207,8 @@ class TradingBot:
                         new_order = MarketOrder('BUY', order[2])
                 
                 if (new_order):
-                    trade = ib.placeOrder(contract, order)
-                    print(f"✅ Trade executed: {trade}")
+                    trade = ib.placeOrder(contract, new_order)
+                    # print(f"✅ Trade executed: {trade}")
 
 # ✅ Main Function
 def main():
