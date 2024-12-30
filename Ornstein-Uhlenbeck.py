@@ -3,15 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ib_insync import IB, util, MarketOrder, Forex, Stock
 import sys
-import datetime
+from datetime import datetime
 from scipy.stats import linregress
 
 class TradingBot:
 
     def __init__(self):
         # Key : Ticker, Value tuple of tuple with time of purchase, price, amount
-        self.buyOrder = {}
-        self.sellOrder = {}
+        self.buyOrders = {}
+        self.sellOrders = {}
 
     # ✅ Connect to IBKR
     def connect_ibkr(self):
@@ -120,47 +120,93 @@ class TradingBot:
 
 
     # ✅ Trade Execution
-    def execute_trade(self, signal, contract, ib, buyOrders, sellOrders, open_position):
+    def execute_trade(self, signal, contract, ib, open_position):
         """Execute trade based on the signal."""
         order = None
         ticker = contract.symbol
         profit = 0
-
-        if signal == 1 and ticker not in buyOrders:
+        
+        if signal == 1 and ticker not in self.buyOrders:
             order = MarketOrder('BUY', 100)
-            if (ticker not in buyOrders):
-                buyOrders[ticker] = ((datetime.now(), ib.reqMktData(contract).last, 100),)
-            else:
-                buyOrders[ticker] += ((datetime.now(), ib.reqMktData(contract).last, 100),)
-            open_position['price'] = ib.reqMktData(contract).last
 
-        elif signal == -1 and ticker not in sellOrders:
+        elif signal == -1 and ticker not in self.sellOrders:
             order = MarketOrder('SELL', 100)
-            if (ticker not in buyOrders):
-                sellOrders[ticker] = ((datetime.now(), ib.reqMktData(contract).last, 100),)
-            else:
-                sellOrders[ticker] += ((datetime.now(), ib.reqMktData(contract).last, 100),)
-            open_position['price'] = ib.reqMktData(contract).last
 
         if order:
             trade = ib.placeOrder(contract, order)
             print(f"✅ Trade executed: {trade}")
+
+            """
+            Save our order in a dictionary with a timestamp, entry price and quantity
+            """
+            mkt_price = ib.reqTickers(contract)[0].ask # Might be different from actual price of the order due to execution time
+            if signal == 1:
+                if (ticker not in self.buyOrders):
+                    self.buyOrders[ticker] = ((datetime.now(), mkt_price, 100),)
+                else:
+                    self.buyOrders[ticker] += ((datetime.now(), mkt_price, 100),)
+                open_position['price'] = mkt_price
+
+            elif signal == -1:
+                order = MarketOrder('SELL', 100)
+                if (ticker not in self.sellOrders):
+                    self.sellOrders[ticker] = ((datetime.now(), mkt_price, 100),)
+                else:
+                    self.sellOrders[ticker] += ((datetime.now(), mkt_price, 100),)
+                open_position['price'] = mkt_price
+
             if profit != 0:
                 print(f"💰 Profit: {profit:.2f}")
 
-    def exitBuyOrders(self, OU_price, MoS=0.10, SL=0.15, time_limit=360):
-        current_time = datetime.now()
-        orders = self.buyOrders["SPY"]
-        for order in orders:
-            time_elapsed = (current_time - order[0]).total_seconds()
-            if time_elapsed >= time_limit:
-                # ✅ Take-Profit Logic
-                # # 10% before it hits OU price
-                if order[1] >= OU_price * (1 - MoS):
-                    pass
+    def exitBuyOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.1, time_limit=360):
+        ticker = contract.symbol
+        if (ticker in self.buyOrders):
+            orders = self.buyOrders[ticker]
 
-                # ❌ Stop-Loss Logic
-                # if price falls 15% from cost price
+            for order in orders:
+                new_order = None
+                time_elapsed = (datetime.now() - order[0]).total_seconds()
+
+                if time_elapsed >= time_limit:
+                    # ✅ Take-Profit Logic
+                    # # 10% before it hits OU price
+                    if order[1] >= OU_price * (1 - MoS):
+                        new_order = MarketOrder('SELL', order[2])
+
+                    # ❌ Stop-Loss Logic
+                    # if price falls 15% from cost price
+                    mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                    if mkt_price <= order[1] * (1 - SL):
+                        new_order = MarketOrder('SELL', order[2])
+                
+                if (new_order):
+                    trade = ib.placeOrder(contract, order)
+                    print(f"✅ Trade executed: {trade}")
+    
+    def exitSellOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.15, time_limit=360):
+        ticker = contract.symbol
+        if (ticker in self.sellOrders):
+            orders = self.sellOrders[ticker]
+
+            for order in orders:
+                new_order = None
+                time_elapsed = (datetime.now() - order[0]).total_seconds()
+
+                if time_elapsed >= time_limit:
+                    # ✅ Take-Profit Logic
+                    # # 10% before it hits OU price
+                    if order[1] <= OU_price * (1 - MoS):
+                        new_order = MarketOrder('BUY', order[2])
+
+                    # ❌ Stop-Loss Logic
+                    # if price falls 15% from cost price
+                    mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                    if mkt_price >= order[1] * (1 - SL):
+                        new_order = MarketOrder('BUY', order[2])
+                
+                if (new_order):
+                    trade = ib.placeOrder(contract, order)
+                    print(f"✅ Trade executed: {trade}")
 
 # ✅ Main Function
 def main():
@@ -170,10 +216,13 @@ def main():
     open_position = {'price': 0}
 
     try:
-        data = tradingBot.fetch_historical_data(ib, contract)
-        signal, OU_price = tradingBot.ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
-        tradingBot.execute_trade(signal, contract, ib, open_position)
-        ib.sleep(1)  # Prevent API overload
+        while (True):
+            data = tradingBot.fetch_historical_data(ib, contract)
+            signal, OU_price = tradingBot.ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
+            tradingBot.exitBuyOrders(contract, OU_price, ib)
+            tradingBot.exitSellOrders(contract, OU_price, ib)
+            tradingBot.execute_trade(signal, contract, ib, open_position)
+            ib.sleep(3)  # Prevent API overload
 
     except ValueError as e:
         print(f"❌ Error: {e}")
