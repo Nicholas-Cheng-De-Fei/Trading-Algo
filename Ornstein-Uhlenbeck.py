@@ -81,19 +81,33 @@ def ornstein_uhlenbeck_strategy(data):
     sigma = data['close'].std()
 
     # Get the signal from the most recent data point
+
+    """
+    fixed dt of 1 not true representation of time step of data freq,
+    derive dt dynamically from the time diff btn price obs
+    """
     dt = 1  # Time step
     prev_price = data['close'].iloc[length - 1]
     current_price = data['close'].iloc[length]
+
+    '''
+    Adds randomness to OU price, use historical volatility / deterministic methods for noise.
+    '''
     noise = np.random.normal(0, sigma * np.sqrt(dt))
+
     OU_price = prev_price + theta * (mu - prev_price) * dt + noise
 
 
-    # Generate trading signal for the most recent data point
+    """
+    direct comparison btwn prices. introduce a threshold factor to avoid over-trading on small deviations
+    """
     signal = 0
     if (current_price > OU_price):
         signal = -1 # Sell Signal
     elif (current_price < OU_price):
         signal = 1 # Buy Signal
+
+    # insert risk management here
 
     print(f"✅ Mean-Reversion Speed (Theta) used: {theta:.4f}")
     return signal
