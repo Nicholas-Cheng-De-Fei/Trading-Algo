@@ -135,16 +135,6 @@ class TradingBot:
             self.sellOrders[ticker] = 1
             open_position['price'] = ib.reqMktData(contract).last
 
-        elif signal == 0:
-            if ticker in self.buyOrders:
-                order = MarketOrder('SELL', 1000)
-                profit = (ib.reqMktData(contract).last - open_position['price']) * 10000
-                del self.buyOrders[ticker]
-            elif ticker in self.sellOrders:
-                order = MarketOrder('BUY', 1000)
-                profit = (open_position['price'] - ib.reqMktData(contract).last) * 10000
-                del self.sellOrders[ticker]
-
         if order:
             trade = ib.placeOrder(contract, order)
             print(f"✅ Trade executed: {trade}")
