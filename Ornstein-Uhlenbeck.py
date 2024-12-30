@@ -27,8 +27,8 @@ def fetch_historical_data(ib, contract):
     bars = ib.reqHistoricalData(
         contract,
         endDateTime='',
-        durationStr='1 Y',
-        barSizeSetting='4 hours',
+        durationStr='3 M',
+        barSizeSetting='5 mins',
         whatToShow='MIDPOINT',
         useRTH=True,
         formatDate=1
@@ -121,24 +121,20 @@ def execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position):
     profit = 0
 
     if signal == 1 and ticker not in buyOrders:
-        order = MarketOrder('BUY', 1000)
-        buyOrders[ticker] = 1
+        order = MarketOrder('BUY', 100)
+        if (ticker not in buyOrders):
+            buyOrders[ticker] = ((datetime.now(), ib.reqMktData(contract).last, 100),)
+        else:
+            buyOrders[ticker] += ((datetime.now(), ib.reqMktData(contract).last, 100),)
         open_position['price'] = ib.reqMktData(contract).last
 
     elif signal == -1 and ticker not in sellOrders:
-        order = MarketOrder('SELL', 1000)
-        sellOrders[ticker] = 1
+        order = MarketOrder('SELL', 100)
+        if (ticker not in buyOrders):
+            sellOrders[ticker] = ((datetime.now(), ib.reqMktData(contract).last, 100),)
+        else:
+            sellOrders[ticker] += ((datetime.now(), ib.reqMktData(contract).last, 100),)
         open_position['price'] = ib.reqMktData(contract).last
-
-    elif signal == 0:
-        if ticker in buyOrders:
-            order = MarketOrder('SELL', 1000)
-            profit = (ib.reqMktData(contract).last - open_position['price']) * 10000
-            del buyOrders[ticker]
-        elif ticker in sellOrders:
-            order = MarketOrder('BUY', 1000)
-            profit = (open_position['price'] - ib.reqMktData(contract).last) * 10000
-            del sellOrders[ticker]
 
     if order:
         trade = ib.placeOrder(contract, order)
@@ -146,11 +142,15 @@ def execute_trade(signal, contract, ib, buyOrders, sellOrders, open_position):
         if profit != 0:
             print(f"💰 Profit: {profit:.2f}")
 
+def exit(buyOrders, sellOrders, data, MoS=0.10, SL=0.15, time_limit=5):
+    pass
+
 
 # ✅ Main Function
 def main():
     ib = connect_ibkr()
     contract = Stock('SPY', 'SMART', 'USD')  # Correct contract for SPY ETF
+    # Key : Ticker, Value tuple of tuple with time of purchase, price, amount
     buyOrders = {}
     sellOrders = {}
     open_position = {'price': 0}
