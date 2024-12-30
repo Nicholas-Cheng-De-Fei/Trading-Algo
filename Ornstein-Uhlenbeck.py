@@ -183,7 +183,7 @@ class TradingBot:
                     trade = ib.placeOrder(contract, order)
                     print(f"✅ Trade executed: {trade}")
     
-    def exitSellOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.15, time_limit=360):
+    def exitSellOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.10, time_limit=360):
         ticker = contract.symbol
         if (ticker in self.sellOrders):
             orders = self.sellOrders[ticker]
@@ -201,6 +201,7 @@ class TradingBot:
                     # ❌ Stop-Loss Logic
                     # if price falls 15% from cost price
                     mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                    print(f"Stop loss {order[1] * (1 - SL):.4f}")
                     if mkt_price >= order[1] * (1 - SL):
                         new_order = MarketOrder('BUY', order[2])
                 
@@ -219,6 +220,7 @@ def main():
         while (True):
             data = tradingBot.fetch_historical_data(ib, contract)
             signal, OU_price = tradingBot.ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
+            print(f"OU Price:{OU_price:.4f}")
             tradingBot.exitBuyOrders(contract, OU_price, ib)
             tradingBot.exitSellOrders(contract, OU_price, ib)
             tradingBot.execute_trade(signal, contract, ib, open_position)
