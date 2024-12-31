@@ -8,6 +8,7 @@ from scipy.stats import linregress
 
 class TradingBot:
 
+    # Constructor
     def __init__(self):
         # Key : Ticker, Value tuple of tuple with time of purchase, price, amount
         self.buyOrders = {}
@@ -29,15 +30,15 @@ class TradingBot:
 
 
     # ✅ Fetch Historical Data
-    def fetch_historical_data(self, ib, contract):
+    def fetch_historical_data(self, ib, contract, duration, interval):
         bars = ib.reqHistoricalData(
             contract,
-            endDateTime='',
-            durationStr='3 M',
-            barSizeSetting='5 mins',
-            whatToShow='MIDPOINT',
-            useRTH=True,
-            formatDate=1
+            endDateTime = '',
+            durationStr = duration,
+            barSizeSetting = interval,
+            whatToShow = 'MIDPOINT',
+            useRTH = True,
+            formatDate = 1
         )
         data = util.df(bars)
         data.set_index('date', inplace=True)
@@ -96,9 +97,9 @@ class TradingBot:
         prev_price = data['close'].iloc[length - 1]
         current_price = data['close'].iloc[length]
 
-        '''
+        """
         Adds randomness to OU price, use historical volatility / deterministic methods for noise.
-        '''
+        """
         noise = np.random.normal(0, sigma * np.sqrt(dt))
 
         OU_price = prev_price + theta * (mu - prev_price) * dt + noise
@@ -120,95 +121,101 @@ class TradingBot:
 
 
     # ✅ Trade Execution
-    def execute_trade(self, signal, contract, ib, open_position):
-        """Execute trade based on the signal."""
+    def execute_trade(self, signal, contract, ib):
+        """ Execute trade based on the signal. """
         order = None
         ticker = contract.symbol
         profit = 0
         
-        if signal == 1 and ticker not in self.buyOrders:
-            order = MarketOrder('BUY', 100)
+        """ Ensure that we are not holding any positions with the ticker before placing an order. """
+        if (ticker not in self.sellOrders and ticker not in self.buyOrders):
+            if (signal == 1):
+                order = MarketOrder('BUY', 100)
+            elif (signal == -1):
+                order = MarketOrder('SELL', 100)
 
-        elif signal == -1 and ticker not in self.sellOrders:
-            order = MarketOrder('SELL', 100)
-
+        """ Place an order on IBRK. """
         if order:
             trade = ib.placeOrder(contract, order)
             # print(f"✅ Trade executed: {trade}")
 
-            """
-            Save our order in a dictionary with a timestamp, entry price and quantity
-            """
+            """ Save our order in a dictionary with a timestamp, entry price and quantity. """
             mkt_price = ib.reqTickers(contract)[0].ask # Might be different from actual price of the order due to execution time
             if signal == 1:
-                if (ticker not in self.buyOrders):
-                    self.buyOrders[ticker] = ((datetime.now(), mkt_price, 100),)
-                else:
-                    self.buyOrders[ticker] += ((datetime.now(), mkt_price, 100),)
-                open_position['price'] = mkt_price
+                self.buyOrders[ticker] = (datetime.now(), mkt_price, 100)
 
             elif signal == -1:
-                order = MarketOrder('SELL', 100)
-                if (ticker not in self.sellOrders):
-                    self.sellOrders[ticker] = ((datetime.now(), mkt_price, 100),)
-                else:
-                    self.sellOrders[ticker] += ((datetime.now(), mkt_price, 100),)
-                open_position['price'] = mkt_price
+                self.sellOrders[ticker] = (datetime.now(), mkt_price, 100)
 
             if profit != 0:
                 print(f"💰 Profit: {profit:.2f}")
 
+    # Exit all positions if the conditions are met
+    def exitPositions(self, contract, OU_price, ib):
+            self.exitBuyOrders(contract, OU_price, ib)
+            self.exitSellOrders(contract, OU_price, ib)
+
+    # 🛑 Exit Long Positions
     def exitBuyOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.1, time_limit=360):
         ticker = contract.symbol
+
         if (ticker in self.buyOrders):
-            orders = self.buyOrders[ticker]
+            """ Retrieve order position. """
+            position = self.buyOrders[ticker]
 
-            for order in orders:
-                new_order = None
-                time_elapsed = (datetime.now() - order[0]).total_seconds()
+            order = None
+            """ Ensure that we do not immediately close the position. """
+            time_elapsed = (datetime.now() - position[0]).total_seconds()
 
-                if time_elapsed >= time_limit:
-                    # ✅ Take-Profit Logic
-                    # # 10% before it hits OU price
-                    if order[1] >= OU_price * (1 - MoS):
-                        new_order = MarketOrder('SELL', order[2])
+            """ Determine to exit for profit or exit to minimise loss. """
+            if time_elapsed >= time_limit:
+                # ✅ Take-Profit Logic
+                # # 10% before it hits OU price
+                if position[1] >= OU_price * (1 - MoS):
+                    order = MarketOrder('SELL', position[2])
 
-                    # ❌ Stop-Loss Logic
-                    # if price falls 15% from cost price
-                    mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
-                    if mkt_price <= order[1] * (1 - SL):
-                        new_order = MarketOrder('SELL', order[2])
-                
-                if (new_order):
-                    trade = ib.placeOrder(contract, new_order)
-                    # print(f"✅ Trade executed: {trade}")
+                # ❌ Stop-Loss Logic
+                # if price falls 15% from cost price
+                mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                if mkt_price <= position[1] * (1 - SL):
+                    order = MarketOrder('SELL', position[2])
+            
+            if (order):
+                trade = ib.placeOrder(contract, order)
+                """ Remove the position from the tracking dictionary. """
+                del(self.buyOrders[ticker])
+                # print(f"✅ Trade executed: {trade}")
     
+    # 🛑 Exit Short Positions
     def exitSellOrders(self, contract, OU_price, ib, MoS=0.10, SL=0.10, time_limit=360):
         ticker = contract.symbol
         if (ticker in self.sellOrders):
-            orders = self.sellOrders[ticker]
+            """ Retrieve order position. """
+            position = self.buyOrders[ticker]
 
-            for order in orders:
-                new_order = None
-                time_elapsed = (datetime.now() - order[0]).total_seconds()
+            order = None
+            time_elapsed = (datetime.now() - order[0]).total_seconds()
 
-                if time_elapsed >= time_limit:
-                    # ✅ Take-Profit Logic
-                    # # 10% before it hits OU price
-                    print(f"Stop loss {OU_price * (1 - MoS):.4f}")
-                    if order[1] <= OU_price * (1 - MoS):
-                        new_order = MarketOrder('BUY', order[2])
+            """ Determine to exit for profit or exit to minimise loss. """
+            if time_elapsed >= time_limit:
+                # ✅ Take-Profit Logic
+                # # 10% before it hits OU price
+                print(f"Stop loss {OU_price * (1 - MoS):.4f}")
+                if position[1] <= OU_price * (1 - MoS):
+                    order = MarketOrder('BUY', position[2])
 
-                    # ❌ Stop-Loss Logic
-                    # if price falls 15% from cost price
-                    mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
-                    print(f"Stop loss {order[1] * (1 - SL):.4f}")
-                    if mkt_price >= order[1] * (1 - SL):
-                        new_order = MarketOrder('BUY', order[2])
-                
-                if (new_order):
-                    trade = ib.placeOrder(contract, new_order)
-                    # print(f"✅ Trade executed: {trade}")
+                # ❌ Stop-Loss Logic
+                # if price falls 15% from cost price
+                mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                print(f"Stop loss {position[1] * (1 - SL):.4f}")
+                if mkt_price >= position[1] * (1 - SL):
+                    order = MarketOrder('BUY', position[2])
+            
+            if (order):
+                trade = ib.placeOrder(contract, order)
+                """ Remove the position from the tracking dictionary. """
+                del(self.sellOrders[ticker])
+                # print(f"✅ Trade executed: {trade}")
 
 # ✅ Main Function
 def main():
@@ -219,12 +226,11 @@ def main():
 
     try:
         while (True):
-            data = tradingBot.fetch_historical_data(ib, contract)
+            data = tradingBot.fetch_historical_data(ib, contract, "3 M", "5 mins")
             signal, OU_price = tradingBot.ornstein_uhlenbeck_strategy(data)  # Apply OU Process and get the signal
             print(f"OU Price:{OU_price:.4f}")
-            tradingBot.exitBuyOrders(contract, OU_price, ib)
-            tradingBot.exitSellOrders(contract, OU_price, ib)
-            tradingBot.execute_trade(signal, contract, ib, open_position)
+            tradingBot.exitPositions(contract, OU_price, ib)
+            tradingBot.execute_trade(signal, contract, ib)
             ib.sleep(3)  # Prevent API overload
 
     except ValueError as e:
