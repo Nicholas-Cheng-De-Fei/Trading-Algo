@@ -45,7 +45,11 @@ class TradingBot:
         
         if data.empty:
             raise ValueError("❌ No historical data retrieved. Check IBKR API connection or contract details.")
-        
+        print(data)
+
+        """
+        should we should NA? or replace
+        """
         return data.dropna()
 
 
