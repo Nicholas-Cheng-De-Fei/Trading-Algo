@@ -34,15 +34,3 @@ Where:
 
 
 ---
-
-## 🚀 **Installation**
-
-### **1. Clone the Repository**
-```bash
-git clone https://github.com/Nicholas-Cheng-De-Fei/Trading-Algo.git
-```
-Then navigate to the folder where the folders are cloned into.
-
-## References
-
-1. [TheQuantPy](https://github.com/TheQuantPy/youtube-tutorials)
