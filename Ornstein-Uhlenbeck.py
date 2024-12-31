@@ -130,9 +130,9 @@ class TradingBot:
         """ Ensure that we are not holding any positions with the ticker before placing an order. """
         if (ticker not in self.sellOrders and ticker not in self.buyOrders):
             if (signal == 1):
-                order = MarketOrder('BUY', 100)
+                order = MarketOrder('BUY', 50000)
             elif (signal == -1):
-                order = MarketOrder('SELL', 100)
+                order = MarketOrder('SELL', 50000)
 
         """ Place an order on IBRK. """
         if order:
@@ -142,10 +142,10 @@ class TradingBot:
             """ Save our order in a dictionary with a timestamp, entry price and quantity. """
             mkt_price = ib.reqTickers(contract)[0].ask # Might be different from actual price of the order due to execution time
             if signal == 1:
-                self.buyOrders[ticker] = (datetime.now(), mkt_price, 100)
+                self.buyOrders[ticker] = (datetime.now(), mkt_price, 50000)
 
             elif signal == -1:
-                self.sellOrders[ticker] = (datetime.now(), mkt_price, 100)
+                self.sellOrders[ticker] = (datetime.now(), mkt_price, 50000)
 
             if profit != 0:
                 print(f"💰 Profit: {profit:.2f}")
@@ -171,12 +171,14 @@ class TradingBot:
             if time_elapsed >= time_limit:
                 # ✅ Take-Profit Logic
                 # # 10% before it hits OU price
+                print(f"BUY: Take Profit target {OU_price * (1 - MoS):.4f}")
                 if position[1] >= OU_price * (1 - MoS):
                     order = MarketOrder('SELL', position[2])
 
                 # ❌ Stop-Loss Logic
                 # if price falls 15% from cost price
                 mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
+                print(f"BUY: Stop loss target {position[1] * (1 - SL):.4f}")
                 if mkt_price <= position[1] * (1 - SL):
                     order = MarketOrder('SELL', position[2])
             
@@ -191,23 +193,23 @@ class TradingBot:
         ticker = contract.symbol
         if (ticker in self.sellOrders):
             """ Retrieve order position. """
-            position = self.buyOrders[ticker]
+            position = self.sellOrders[ticker]
 
             order = None
-            time_elapsed = (datetime.now() - order[0]).total_seconds()
+            time_elapsed = (datetime.now() - position[0]).total_seconds()
 
             """ Determine to exit for profit or exit to minimise loss. """
             if time_elapsed >= time_limit:
                 # ✅ Take-Profit Logic
                 # # 10% before it hits OU price
-                print(f"Stop loss {OU_price * (1 - MoS):.4f}")
+                print(f"SELL: Take Profit target {OU_price * (1 - MoS):.4f}")
                 if position[1] <= OU_price * (1 - MoS):
                     order = MarketOrder('BUY', position[2])
 
                 # ❌ Stop-Loss Logic
                 # if price falls 15% from cost price
                 mkt_price = mkt_price = ib.reqTickers(contract)[0].ask
-                print(f"Stop loss {position[1] * (1 - SL):.4f}")
+                print(f"SELL: Stop loss target {position[1] * (1 - SL):.4f}")
                 if mkt_price >= position[1] * (1 - SL):
                     order = MarketOrder('BUY', position[2])
             
@@ -221,7 +223,8 @@ class TradingBot:
 def main():
     tradingBot = TradingBot()
     ib = tradingBot.connect_ibkr()
-    contract = Stock('SPY', 'SMART', 'USD')  # Correct contract for SPY ETF
+    contract = Forex('EURUSD')
+    #contract = Stock('SPY', 'SMART', 'USD')  # Correct contract for SPY ETF
     open_position = {'price': 0}
 
     try:
