@@ -1,0 +1,9 @@
+pandas
+numpy
+yfinance
+scipy
+backtesting
+ib-insync
+bokeh
+
+
