@@ -3,6 +3,11 @@ if unable to install backtesting package do this instead:
 pip install git+https://github.com/kernc/backtesting.py.git
 """
 
+"""
+Users should run ADF test firstt to observe whether the instrument does indeed exhibit
+mean-reverting behaviour.
+"""
+
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -14,7 +19,7 @@ from scipy.stats import linregress
 # 1. Fetch data
 def fetch_spy_data(start_date, end_date):
     ticker = 'SPY' # Configure ticker
-    data = yf.download(ticker, start=start_date, end=end_date, interval='1d') # Configure candlestick interval
+    data = yf.download(ticker, start=start_date, end=end_date, interval='1h') # Configure candlestick interval
     
     # Handle MultiIndex Columns
     if isinstance(data.columns, pd.MultiIndex):
@@ -67,6 +72,23 @@ def calculate_mean_reversion_speed(close_prices):
         return theta
     except Exception as e:
         raise ValueError(f"❌ Error in regression calculation: {e}")
+    
+def find_jumps(data):
+    data["Log_Return"] = np.log(data['Close'] / data["Close"].shift(1))
+    data.dropna(inplace=True)
+
+    log_mean = data["Log_Return"].mean()
+    log_std = data["Log_Return"].std()
+    jump_threshold = log_mean + 2 * log_std # 2 stds from the mean
+
+    jumps = data[data['Log_Return'].abs() > jump_threshold]['Log_Return']
+
+    return jumps
+
+# def log_likelihood(mu, sigma, data):
+#     if sigma <= 0:
+#         return np.inf
+#     return -np.sum(norm.logpdf(np.log(data), loc=mu, scale=sigma))
 
 
 # 3. Generate Ornstein-Uhlenbeck price
@@ -80,7 +102,12 @@ def generate_ou_price(close):
     noise = np.random.normal(0, sigma * np.sqrt(1), len(close))
     theta = calculate_mean_reversion_speed(close)
 
-    ou_price = np.roll(close, 1) + theta * (mu - np.roll(close, 1)) + noise
+    # jumps = find_jumps(data) # To account for BS
+
+    jump_occurrence = np.random.poisson(0.1, len(close))  # Adjust λ (jump frequency)
+    jump_size = np.random.lognormal(0, sigma, len(close)) * jump_occurrence
+    
+    ou_price = np.roll(close, 1) + theta * (mu - np.roll(close, 1)) + noise + jump_size
     return ou_price
 
 # 4. Generate trading signal
@@ -126,8 +153,12 @@ bt = Backtest(data, OUReversionStrategy,
               exclusive_orders=True)
 
 
+
 if __name__ == '__main__':
     print("🚀 Starting Ornstein-Uhlenbeck Backtest...")
+    # print(find_jumps(data))
     output = bt.run()
     bt.plot()
     print(output)
+
+"Do 100 simulations and keep track of the Peak, Final, Max Drawdown, Max draw duration into an excel"
