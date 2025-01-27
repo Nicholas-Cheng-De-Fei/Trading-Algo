@@ -4,7 +4,7 @@ pip install git+https://github.com/kernc/backtesting.py.git
 """
 
 """
-Users should run ADF test firstt to observe whether the instrument does indeed exhibit
+Users should run ADF test first to observe whether the instrument does indeed exhibit
 mean-reverting behaviour.
 """
 
