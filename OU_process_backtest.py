@@ -19,7 +19,7 @@ from scipy.stats import linregress
 # 1. Fetch data
 def fetch_spy_data(start_date, end_date):
     ticker = 'SPY' # Configure ticker
-    data = yf.download(ticker, start=start_date, end=end_date, interval='1h') # Configure candlestick interval
+    data = yf.download(ticker, start=start_date, end=end_date, interval='1wk') # Configure candlestick interval
     
     # Handle MultiIndex Columns
     if isinstance(data.columns, pd.MultiIndex):
