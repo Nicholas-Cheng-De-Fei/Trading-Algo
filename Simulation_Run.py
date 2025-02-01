@@ -16,9 +16,13 @@ from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
 from scipy.stats import linregress
 
+# for simulation
+import os
+
+ticker = 'NZDUSD=X' # Configure ticker
+
 # 1. Fetch data
 def fetch_spy_data(start_date, end_date):
-    ticker = 'NZDUSD=X' # Configure ticker
     data = yf.download(ticker, start=start_date, end=end_date, interval='1wk') # Configure candlestick interval
     
     # Handle MultiIndex Columns
@@ -68,7 +72,7 @@ def calculate_mean_reversion_speed(close_prices):
         # Calculate half-life and theta
         half_life = -np.log(0.5) / np.log(abs(slope))
         theta = 1 / half_life
-        print(f"📊 Mean-Reversion Speed (Theta): {theta:.4f}")
+        # print(f"📊 Mean-Reversion Speed (Theta): {theta:.4f}")
         return theta
     except Exception as e:
         raise ValueError(f"❌ Error in regression calculation: {e}")
@@ -149,16 +153,40 @@ class OUReversionStrategy(Strategy):
 
 # 🟢 Run Backtest
 bt = Backtest(data, OUReversionStrategy,
-              cash=10000, commission=0.0002,
+              cash=10000, commission=0.0000, # set comms to zero to ensure that overcomms doesnt affect performance
               exclusive_orders=True)
 
 
 
 if __name__ == '__main__':
     print("🚀 Starting Ornstein-Uhlenbeck Backtest...")
-    # print(find_jumps(data))
-    output = bt.run()
-    bt.plot()
-    print(output)
+    initial_equity = 10000
+    results = []
 
-"Do 100 simulations and keep track of the Peak, Final, Max Drawdown, Max draw duration into an excel"
+    for i in range(1000):
+        output = bt.run()
+
+        # Extract specific values from the _Stats object
+        equity_final = output['Equity Final [$]']
+        equity_peak = output['Equity Peak [$]']
+        max_drawdown = output['Max. Drawdown [%]']
+        max_drawdown_duration = output['Max. Drawdown Duration']
+
+        # Calculate percentages
+        final_equity_pct = (equity_final / initial_equity) * 100
+        peak_equity_pct = (equity_peak / initial_equity) * 100
+
+
+        final_equity_pct_formatted = round(final_equity_pct, 3)  
+        peak_equity_pct_formatted = round(peak_equity_pct, 3)
+
+        results.append({
+            "Peak Equity [%]": peak_equity_pct_formatted,
+            "Final Equity [%]": final_equity_pct_formatted,
+            "Max Drawdown [%]": max_drawdown,
+            "Max Drawdown Duration": max_drawdown_duration
+        })
+
+    df = pd.DataFrame(results)
+    output_file = "backtest_results.xlsx"
+    df.to_excel(output_file)
